@@ -1,0 +1,12 @@
+Angelia is the Greek spirit of messaging. It wraps all accesses to a
+serial port, by way of LD_PRELOAD and tunnels them through a local XBee
+in API mode to send the data to a remote XBee in AT mode.
+
+The focus at the moment is on supporting avrdude remote programming on the
+SparkFun XBee Shield and Series 2 XBees.
+
+Things we need to look at to do this are:
+ - Handling DTR to reset remote Arduino
+ - Changing the baud rate
+ - Forwarding data in packets
+
