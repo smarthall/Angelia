@@ -18,12 +18,30 @@ static int (*next_cfsetospeed)(struct termios *termios_p, speed_t speed) = NULL;
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
 static int (*next_tcsetattr)(int fd, int optional_actions, const struct termios *termios_p) = NULL;
 
+// Reading and Writing
+static ssize_t (*next_read)(int fildes, void *buf, size_t nbyte) = NULL;
+static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
+
 // Lower level IOCTLS
 static int (*next_ioctl)(int fd, int request, void *data) = NULL;
 static int (*next_open)(const char *pathname, int flags, mode_t mode) = NULL;
 
 
+ssize_t read(int fildes, void *buf, size_t nbyte) {
+     if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
 
+     printf("read\n");
+
+     return next_read(fildes, buf, nbyte);
+}
+
+ssize_t write(int fildes, const void *buf, size_t nbyte) {
+     if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
+
+     printf("write\n");
+
+     return next_write(fildes, buf, nbyte);
+}
 
 int cfsetospeed(struct termios *termios_p, speed_t speed) {
      if (next_cfsetospeed == NULL) next_cfsetospeed = dlsym(RTLD_NEXT, "cfsetospeed");
