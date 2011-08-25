@@ -20,6 +20,7 @@ static int (*next_tcsetattr)(int fd, int optional_actions, const struct termios 
 
 // Reading and Writing
 static int (*next_open)(const char *pathname, int flags, mode_t mode) = NULL;
+static int (*next_close)(int fd) = NULL;
 static ssize_t (*next_read)(int fildes, void *buf, size_t nbyte) = NULL;
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
 
@@ -89,6 +90,14 @@ int open(const char *pathname, int flags, mode_t mode) {
     }
 
     return response;
+}
+
+int close(int fd) {
+    if (next_close == NULL) next_close = dlsym(RTLD_NEXT, "close");
+
+    if (fd == usb_fd) usb_fd = 0;
+
+    return next_close(fd);
 }
 
 int ioctl(int fd, int request, void *data)
