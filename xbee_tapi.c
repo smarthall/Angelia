@@ -82,10 +82,22 @@ int open(const char *pathname, int flags, mode_t mode) {
 
     if (next_open == NULL) next_open = dlsym(RTLD_NEXT, "open");
 
+    // TODO Gather configuration from environment
+
     response = next_open(pathname, flags, mode);
 
+    // If we opened the USB device successfully
     if (response != -1 && strcmp(usbpath, pathname) == 0) {
+        // Record the file descriptor
         usb_fd = response;
+
+        // TODO Establish communication with the XBee
+        // TODO Confirm the right firmware on local XBee (API mode)
+        // TODO Confirm the right firmware on remote XBee (AT mode)
+        // TODO Get the local XBee address
+        // TODO Set the remote destination to our XBee address
+
+        //Debug message
         printf("Opened USB @ fd=%d\n", response);
     }
 
@@ -95,7 +107,14 @@ int open(const char *pathname, int flags, mode_t mode) {
 int close(int fd) {
     if (next_close == NULL) next_close = dlsym(RTLD_NEXT, "close");
 
-    if (fd == usb_fd) usb_fd = 0;
+    // If the USB device is getting closed
+    if (fd == usb_fd) {
+        // Forget the file descriptor
+        usb_fd = 0;
+
+        // TODO Set the remote XBee destination back to the original value
+        // TODO Return the local XBee to previous settings
+    }
 
     return next_close(fd);
 }
