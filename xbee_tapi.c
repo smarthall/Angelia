@@ -13,8 +13,6 @@
 int usb_fd = 0;
 
 // Serial Handling
-static int (*next_cfsetispeed)(struct termios *termios_p, speed_t speed) = NULL;
-static int (*next_cfsetospeed)(struct termios *termios_p, speed_t speed) = NULL;
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
 static int (*next_tcsetattr)(int fd, int optional_actions, const struct termios *termios_p) = NULL;
 
@@ -31,7 +29,7 @@ static int (*next_ioctl)(int fd, int request, void *data) = NULL;
 ssize_t read(int fildes, void *buf, size_t nbyte) {
      if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
 
-     printf("read\n");
+     if (fildes == usb_fd) printf("read\n");
 
      return next_read(fildes, buf, nbyte);
 }
@@ -39,25 +37,9 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
      if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
-     printf("write\n");
+     if (fildes == usb_fd) printf("write\n");
 
      return next_write(fildes, buf, nbyte);
-}
-
-int cfsetospeed(struct termios *termios_p, speed_t speed) {
-     if (next_cfsetospeed == NULL) next_cfsetospeed = dlsym(RTLD_NEXT, "cfsetospeed");
-
-     printf("cfsetospeed\n");
-
-     return next_cfsetospeed(termios_p, speed);
-}
-
-int cfsetispeed(struct termios *termios_p, speed_t speed) {
-     if (next_cfsetispeed == NULL) next_cfsetispeed = dlsym(RTLD_NEXT, "cfsetispeed");
-
-     printf("cfsetispeed\n");
-
-     return next_cfsetispeed(termios_p, speed);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
