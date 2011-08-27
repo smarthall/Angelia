@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
+#include "serial.h"
+
 // File Descriptor of the USB device
 int usb_fd = 0;
 
@@ -29,7 +31,7 @@ static int (*next_ioctl)(int fd, int request, void *data) = NULL;
 ssize_t read(int fildes, void *buf, size_t nbyte) {
      if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
 
-     if (fildes == usb_fd) printf("read\n");
+     //if (fildes == usb_fd) printf("read\n");
 
      return next_read(fildes, buf, nbyte);
 }
@@ -37,23 +39,33 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
      if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
-     if (fildes == usb_fd) printf("write\n");
+     //if (fildes == usb_fd) printf("write\n");
 
      return next_write(fildes, buf, nbyte);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
+    int ibaud, obaud;
     if (next_tcsetattr == NULL) next_tcsetattr = dlsym(RTLD_NEXT, "tcsetattr");
 
-    printf("tcsetattr\n");
+    if (fd == usb_fd) {
+        ibaud = getibaud(termios_p);
+        obaud = getobaud(termios_p);
+        printf("tcsetattr ibaud=%d, obaud=%d\n", ibaud, obaud);
+    }
 
     return next_tcsetattr(fd, optional_actions, termios_p);
 }
 
 int tcgetattr(int fd, struct termios *termios_p) {
+    int ibaud, obaud;
     if (next_tcgetattr == NULL) next_tcgetattr = dlsym(RTLD_NEXT, "tcgetattr");
 
-    printf("tcgetattr\n");
+    if (fd == usb_fd) {
+        ibaud = getibaud(termios_p);
+        obaud = getobaud(termios_p);
+        printf("tcgetattr ibaud=%d, obaud=%d\n", ibaud, obaud);
+    }
 
     return next_tcgetattr(fd, termios_p);
 }
