@@ -114,6 +114,9 @@ int close(int fd) {
 
         // TODO Set the remote XBee destination back to the original value
         // TODO Return the local XBee to previous settings
+
+        //Debug message
+        printf("Closed USB @ fd=%d\n", fd);
     }
 
     return next_close(fd);
