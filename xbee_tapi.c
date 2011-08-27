@@ -51,29 +51,37 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
-    int ibaud, obaud;
+    int ibaud, obaud, parity, stop;
     if (next_tcsetattr == NULL) next_tcsetattr = dlsym(RTLD_NEXT, "tcsetattr");
 
     if (fd == usb_fd) {
         ibaud = getibaud(termios_p);
         obaud = getobaud(termios_p);
-        printf("tcsetattr ibaud=%d, obaud=%d\n", ibaud, obaud);
+        parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
+        stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
+        printf("tcsetattr ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", ibaud, obaud, parity, stop);
     }
 
     return next_tcsetattr(fd, optional_actions, termios_p);
 }
 
 int tcgetattr(int fd, struct termios *termios_p) {
-    int ibaud, obaud;
+    int ibaud, obaud, parity, stop;
+    int response;
+
     if (next_tcgetattr == NULL) next_tcgetattr = dlsym(RTLD_NEXT, "tcgetattr");
+
+    response = next_tcgetattr(fd, termios_p);
 
     if (fd == usb_fd) {
         ibaud = getibaud(termios_p);
         obaud = getobaud(termios_p);
-        printf("tcgetattr ibaud=%d, obaud=%d\n", ibaud, obaud);
+        parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
+        stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
+        printf("tcgetattr ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", ibaud, obaud, parity, stop);
     }
 
-    return next_tcgetattr(fd, termios_p);
+    return response;
 }
 
 int open(const char *pathname, int flags, mode_t mode) {
