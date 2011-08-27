@@ -31,7 +31,10 @@ static int (*next_ioctl)(int fd, int request, void *data) = NULL;
 ssize_t read(int fildes, void *buf, size_t nbyte) {
      if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
 
-     //if (fildes == usb_fd) printf("read\n");
+     /*if (fildes == usb_fd) {
+         printf("<");
+         fflush(stdout);
+     }*/
 
      return next_read(fildes, buf, nbyte);
 }
@@ -39,7 +42,10 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
      if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
-     //if (fildes == usb_fd) printf("write\n");
+     /*if (fildes == usb_fd) {
+         printf(">");
+         fflush(stdin);
+     }*/
 
      return next_write(fildes, buf, nbyte);
 }
