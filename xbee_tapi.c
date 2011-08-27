@@ -4,7 +4,9 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#define _SYS_IOCTL_H
 #include <asm-generic/ioctls.h>
+#include <bits/ioctl-types.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -25,7 +27,7 @@ static ssize_t (*next_read)(int fildes, void *buf, size_t nbyte) = NULL;
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
 
 // Lower level IOCTLS
-static int (*next_ioctl)(int fd, int request, void *data) = NULL;
+static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
 
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
@@ -130,16 +132,19 @@ int close(int fd) {
     return next_close(fd);
 }
 
-int ioctl(int fd, int request, void *data)
+int ioctl(int fd, unsigned long int request, void *data)
 {
+  unsigned int *flags = (unsigned int *)data;
   if (next_ioctl == NULL) next_ioctl = dlsym(RTLD_NEXT, "ioctl");
 
   if (usb_fd != 0 && fd == usb_fd) {
       printf("IOCTL (0x%04X) ", request);
       if (request == TIOCMGET) {
-        printf("TIOCMGET");
+        printf("TIOCMGET ");
       } else if (request == TIOCMSET) {
-        printf("TIOCMSET");
+        printf("TIOCMSET ");
+        if (CHECK_FLAG(*flags, TIOCM_DTR)) printf("DTR ");
+        if (CHECK_FLAG(*flags, TIOCM_RTS)) printf("RTS ");
       }
       printf("\n");
   }
