@@ -15,6 +15,7 @@
 
 // File Descriptor of the USB device
 int usb_fd = 0;
+struct termios last_termios;
 
 // Serial Handling
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
@@ -28,6 +29,17 @@ static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
 
 // Lower level IOCTLS
 static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
+
+void debug_termios(const char * msg, const struct termios *termios_p) {
+    int ibaud, obaud, parity, stop;
+
+    //Give debugging info
+    ibaud = getibaud(termios_p);
+    obaud = getobaud(termios_p);
+    parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
+    stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
+    printf("tcsetattr(%s) ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", msg, ibaud, obaud, parity, stop);
+}
 
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
@@ -53,18 +65,30 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
-    int ibaud, obaud, parity, stop;
+    struct termios local_term = *termios_p;
+
     if (next_tcsetattr == NULL) next_tcsetattr = dlsym(RTLD_NEXT, "tcsetattr");
 
     if (fd == usb_fd) {
-        ibaud = getibaud(termios_p);
-        obaud = getobaud(termios_p);
-        parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
-        stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
-        printf("tcsetattr ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", ibaud, obaud, parity, stop);
+        // Store the settings for the close
+        last_termios = *termios_p;
+
+        // Change the settings to match the local XBee
+        local_term.c_iflag = IGNBRK;
+        local_term.c_oflag = 0;
+        local_term.c_lflag = 0;
+        local_term.c_cflag = (CS8 | CREAD | CLOCAL);
+        local_term.c_cc[VMIN]  = 1;
+        local_term.c_cc[VTIME] = 0;
+        cfsetospeed(&local_term, B9600);
+        cfsetispeed(&local_term, B9600);
+
+        // Some debug messages
+        debug_termios("requested", termios_p);
+        debug_termios("actual", &local_term);
     }
 
-    return next_tcsetattr(fd, optional_actions, termios_p);
+    return next_tcsetattr(fd, optional_actions, &local_term);
 }
 
 int tcgetattr(int fd, struct termios *termios_p) {
@@ -76,11 +100,7 @@ int tcgetattr(int fd, struct termios *termios_p) {
     response = next_tcgetattr(fd, termios_p);
 
     if (fd == usb_fd) {
-        ibaud = getibaud(termios_p);
-        obaud = getobaud(termios_p);
-        parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
-        stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
-        printf("tcgetattr ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", ibaud, obaud, parity, stop);
+        debug_termios("query", termios_p);
     }
 
     return response;
@@ -121,6 +141,10 @@ int close(int fd) {
     if (fd == usb_fd) {
         // Forget the file descriptor
         usb_fd = 0;
+
+        // Restore settings
+        next_tcsetattr(fd, TCSANOW, &last_termios);
+        debug_termios("restored", &last_termios);
 
         // TODO Set the remote XBee destination back to the original value
         // TODO Return the local XBee to previous settings
