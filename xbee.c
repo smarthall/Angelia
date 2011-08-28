@@ -3,8 +3,9 @@
 #include "xbee.h"
 
 // Macros to make byte playing easier
-#define HIGH_BYTE(x) ((uint8_t) (x) >> 8)
-#define LOW_BYTE(x) ((uint8_t) (x) & 0x00FF)
+#define HIGH_BYTE(x)    ((uint8_t) (x) >> 8)
+#define LOW_BYTE(x)     ((uint8_t) (x) & 0x00FF)
+#define COMB_BYTE(h,l)  ((uint16_t) ((h << 8) + (l)))
 
 // Other defines
 #define XBEE_PADDING 4
@@ -36,7 +37,9 @@
 #define LOC_LENGTH_L 0x02
 #define LOC_DATA     0x03
 
-uint8_t *make_xbee_packet(uint16_t length, uint8_t *data) {
+
+
+uint8_t *make_xbee_packet(uint16_t length) {
     uint8_t *packet = malloc((length + XBEE_PADDING) * sizeof(uint8_t));
     uint8_t checksum;
     int i;
@@ -44,15 +47,24 @@ uint8_t *make_xbee_packet(uint16_t length, uint8_t *data) {
     packet[LOC_START] = XBEE_START;
     packet[LOC_LENGTH_H] = HIGH_BYTE(length);
     packet[LOC_LENGTH_L] = LOW_BYTE(length);
-    memcpy(packet + LOC_DATA, data, length);
 
-    for ( i = 0; i < length; i++) {
-        checksum += data[i];
+    return packet;
+}
+
+void xbee_calc_checksum(uint8_t *packet) {
+    uint8_t *current, *end, checksum;
+    uint16_t length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
+
+    current = packet + LOC_DATA;
+    end = packet + LOC_DATA + length;
+
+    while (current < end) {
+        checksum += *current;
+        current++;
     }
 
     packet[LOC_DATA + length] = 0xFF - checksum;
 
-    return packet;
 }
 
 void free_xbee_packet(uint8_t *packet) {
