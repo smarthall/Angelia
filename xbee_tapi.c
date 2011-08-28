@@ -26,9 +26,16 @@ static int (*next_open)(const char *pathname, int flags, mode_t mode) = NULL;
 static int (*next_close)(int fd) = NULL;
 static ssize_t (*next_read)(int fildes, void *buf, size_t nbyte) = NULL;
 static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
+static int (*next_select)(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) = NULL;
 
 // Lower level IOCTLS
 static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
+
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
+    if (next_select == NULL) next_select = dlsym(RTLD_NEXT, "select");
+
+    return next_select(nfds, readfds, writefds, exceptfds, timeout);
+}
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
      if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
