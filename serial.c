@@ -1,5 +1,7 @@
 #include <termios.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "serial.h"
 
@@ -52,6 +54,17 @@ int serial_baud_to_int(speed_t speed) {
     }
 
     return speed;
+}
+
+void debug_termios(const char * msg, const struct termios *termios_p) {
+    int ibaud, obaud, parity, stop;
+
+    //Give debugging info
+    ibaud = getibaud(termios_p);
+    obaud = getobaud(termios_p);
+    parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
+    stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
+    printf("termios(%s) ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", msg, ibaud, obaud, parity, stop);
 }
 
 

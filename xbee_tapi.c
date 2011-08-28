@@ -30,18 +30,6 @@ static ssize_t (*next_write)(int fildes, const void *buf, size_t nbyte) = NULL;
 // Lower level IOCTLS
 static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
 
-void debug_termios(const char * msg, const struct termios *termios_p) {
-    int ibaud, obaud, parity, stop;
-
-    //Give debugging info
-    ibaud = getibaud(termios_p);
-    obaud = getobaud(termios_p);
-    parity = CHECK_FLAG(termios_p->c_cflag, PARENB);
-    stop = CHECK_FLAG(termios_p->c_cflag, CSTOPB)?2:1;
-    printf("tcsetattr(%s) ibaud=%d, obaud=%d, parity=%d, stopbit=%d\n", msg, ibaud, obaud, parity, stop);
-}
-
-
 ssize_t read(int fildes, void *buf, size_t nbyte) {
      if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
 
