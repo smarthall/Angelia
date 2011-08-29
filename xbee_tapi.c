@@ -14,7 +14,7 @@
 #include "serial.h"
 
 // File Descriptor of the USB device
-int usb_fd = 0;
+int usb_fd = 0, last_termios_set = 0;
 struct termios last_termios;
 
 // Serial Handling
@@ -56,6 +56,12 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
          fflush(stdin);
      }*/
 
+     // TODO Establish communication with the XBee
+     // TODO Confirm the right firmware on local XBee (API mode)
+     // TODO Confirm the right firmware on remote XBee (AT mode)
+     // TODO Get the local XBee address
+     // TODO Set the remote destination to our XBee address
+
      return next_write(fildes, buf, nbyte);
 }
 
@@ -67,6 +73,7 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     if (fd == usb_fd) {
         // Store the settings for the close
         last_termios = *termios_p;
+        last_termios_set = 1;
 
         // Change the settings to match the local XBee
         local_term.c_iflag = IGNBRK;
@@ -92,10 +99,17 @@ int tcgetattr(int fd, struct termios *termios_p) {
 
     if (next_tcgetattr == NULL) next_tcgetattr = dlsym(RTLD_NEXT, "tcgetattr");
 
-    response = next_tcgetattr(fd, termios_p);
-
-    if (fd == usb_fd) {
-        debug_termios("query", termios_p);
+    if ((fd == usb_fd) && (last_termios_set == 1)) {
+        termios_p = &last_termios;
+        debug_termios("faked", termios_p);
+        response = 0;
+    } else if (fd == usb_fd) {
+        response = next_tcgetattr(fd, termios_p);
+        last_termios = *termios_p;
+        last_termios_set = 1;
+        debug_termios("real", termios_p);
+    } else {
+        response = next_tcgetattr(fd, termios_p);
     }
 
     return response;
@@ -116,12 +130,6 @@ int open(const char *pathname, int flags, mode_t mode) {
         // Record the file descriptor
         usb_fd = response;
 
-        // TODO Establish communication with the XBee
-        // TODO Confirm the right firmware on local XBee (API mode)
-        // TODO Confirm the right firmware on remote XBee (AT mode)
-        // TODO Get the local XBee address
-        // TODO Set the remote destination to our XBee address
-
         //Debug message
         printf("Opened USB @ fd=%d\n", response);
     }
@@ -136,9 +144,10 @@ int close(int fd) {
     if (fd == usb_fd) {
         // Forget the file descriptor
         usb_fd = 0;
+        last_termios_set = 0;
 
         // Restore settings
-        next_tcsetattr(fd, TCSANOW, &last_termios);
+        next_tcsetattr(fd, TCSANOW | TCSADRAIN, &last_termios);
         debug_termios("restored", &last_termios);
 
         // TODO Set the remote XBee destination back to the original value
