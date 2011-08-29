@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#define xbee_packet_size(packet) ((uint16_t) ((packet[1] << 8) + (packet[2])))
+
 // Raw Packet Building
 uint8_t *make_xbee_packet(uint16_t length);
 void xbee_calc_checksum(uint8_t *packet);

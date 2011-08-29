@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -12,9 +13,10 @@
 #include <dlfcn.h>
 
 #include "serial.h"
+#include "xbee.h"
 
 // File Descriptor of the USB device
-int usb_fd = 0, last_termios_set = 0;
+int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
 struct termios last_termios;
 
 // Serial Handling
@@ -49,20 +51,43 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-     if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
+    uint8_t *packet;
+    uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t remote[8] = {0xFE, 0x00, 0x03, 0x00, 0x22, 0x60, 0xAE, 0x0F};
+    uint8_t localaddress_h[4], localaddress_l[4];
+    int resp;
+    if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
-     /*if (fildes == usb_fd) {
-         printf(">");
-         fflush(stdin);
-     }*/
+    if (fildes == usb_fd) {
+        if (xbee_is_init == 0) {
+            // TODO Confirm the right firmware on local XBee (API mode)
+            packet = xbee_at_packet("VR");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
 
-     // TODO Establish communication with the XBee
-     // TODO Confirm the right firmware on local XBee (API mode)
-     // TODO Confirm the right firmware on remote XBee (AT mode)
-     // TODO Get the local XBee address
-     // TODO Set the remote destination to our XBee address
+            // TODO Confirm the right firmware on remote XBee (AT mode)
+            packet = xbee_rat_packet("VR", remote);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
 
-     return next_write(fildes, buf, nbyte);
+            // TODO Get the local XBee address
+            packet = xbee_at_packet("SH");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            packet = xbee_at_packet("SL");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // TODO Set the remote destination to our XBee address
+            packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // We've initialized the XBee
+            xbee_is_init = 1;
+        }
+
+        // TODO Send the packet
+    }
+
+    return next_write(fildes, buf, nbyte);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
