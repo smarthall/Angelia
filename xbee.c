@@ -90,3 +90,26 @@ uint8_t *xbee_at_packet_param(const char *at_command, uint16_t paramlen, const u
     return packet;
 }
 
+uint8_t *xbee_rat_packet(const char *at_command, const uint8_t *64dest) {
+    return xbee_rat_packet_param(at_command, 64dest, 0, NULL);
+}
+
+uint8_t *xbee_rat_packet_param(const char *at_command, const uint8_t *64dest, uint16_t paramlen, const uint8_t *param) {
+    uint16_t payloadlen = 10 + paramlen;
+    uint8_t *packet;
+
+    packet = make_xbee_packet(payloadlen);
+    packet[LOC_DATA] = XBEE_CMD_RAT;
+    packet[LOC_DATA + 1] = 0;
+    memcpy(packet + LOC_DATA + 2, 64dest, sizeof(uint8_t) * 8);
+    packet[LOC_DATA + 3] = 0xFF;
+    packet[LOC_DATA + 4] = 0xFE;
+    packet[LOC_DATA + 5] = at_command[0];
+    packet[LOC_DATA + 6] = at_command[1];
+    if (paramlen > 0) memcpy(packet + LOC_DATA + 7, param, paramlen);
+
+    xbee_calc_checksum(packet);
+
+    return packet;
+}
+
