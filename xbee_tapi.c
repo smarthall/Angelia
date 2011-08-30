@@ -63,7 +63,6 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
     uint8_t remote[8] = {0xFE, 0x00, 0x03, 0x00, 0x22, 0x60, 0xAE, 0x0F};
     uint8_t localaddress_h[4], localaddress_l[4];
     int resp;
-    if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
     if (fildes == usb_fd) {
         if (xbee_is_init == 0) {
