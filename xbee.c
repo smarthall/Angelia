@@ -37,8 +37,6 @@
 #define LOC_LENGTH_L 0x02
 #define LOC_DATA     0x03
 
-
-
 uint8_t *make_xbee_packet(uint16_t length) {
     uint8_t *packet = malloc((length + XBEE_PADDING) * sizeof(uint8_t));
     uint8_t checksum;
@@ -112,4 +110,24 @@ uint8_t *xbee_rat_packet_param(const char *at_command, uint8_t *dest64, uint16_t
 
     return packet;
 }
+
+uint8_t *xbee_tx_packet(const char *at_command, uint8_t *dest64, uint8_t options, uint16_t datalen, const uint8_t *data) {
+    uint16_t payloadlen = 12 + datalen;
+    uint8_t *packet;
+
+    packet = make_xbee_packet(payloadlen);
+    packet[LOC_DATA] = XBEE_CMD_TX;
+    packet[LOC_DATA + 1] = 0;
+    memcpy(packet + LOC_DATA + 2, dest64, sizeof(uint8_t) * 8);
+    packet[LOC_DATA + 3] = 0xFF;
+    packet[LOC_DATA + 4] = 0xFE;
+    packet[LOC_DATA + 5] = 0x00;
+    packet[LOC_DATA + 6] = options;
+    if (paramlen > 0) memcpy(packet + LOC_DATA + 7, data, datalen);
+
+    xbee_calc_checksum(packet);
+
+    return packet;
+}
+
 
