@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -12,9 +13,10 @@
 #include <dlfcn.h>
 
 #include "serial.h"
+#include "xbee.h"
 
 // File Descriptor of the USB device
-int usb_fd = 0;
+int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
 struct termios last_termios;
 
 // Serial Handling
@@ -56,12 +58,43 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-     /*if (fildes == usb_fd) {
-         printf(">");
-         fflush(stdin);
-     }*/
+    uint8_t *packet;
+    uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t remote[8] = {0xFE, 0x00, 0x03, 0x00, 0x22, 0x60, 0xAE, 0x0F};
+    uint8_t localaddress_h[4], localaddress_l[4];
+    int resp;
+    if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
 
-     return next_write(fildes, buf, nbyte);
+    if (fildes == usb_fd) {
+        if (xbee_is_init == 0) {
+            // TODO Confirm the right firmware on local XBee (API mode)
+            packet = xbee_at_packet("VR");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // TODO Confirm the right firmware on remote XBee (AT mode)
+            packet = xbee_rat_packet("VR", remote);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // TODO Get the local XBee address
+            packet = xbee_at_packet("SH");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            packet = xbee_at_packet("SL");
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // TODO Set the remote destination to our XBee address
+            packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+
+            // We've initialized the XBee
+            xbee_is_init = 1;
+        }
+
+        // TODO Send the packet
+    }
+
+    return next_write(fildes, buf, nbyte);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
@@ -70,6 +103,7 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     if (fd == usb_fd) {
         // Store the settings for the close
         last_termios = *termios_p;
+        last_termios_set = 1;
 
         // Change the settings to match the local XBee
         local_term.c_iflag = IGNBRK;
@@ -93,10 +127,17 @@ int tcgetattr(int fd, struct termios *termios_p) {
     int ibaud, obaud, parity, stop;
     int response;
 
-    response = next_tcgetattr(fd, termios_p);
-
-    if (fd == usb_fd) {
-        debug_termios("query", termios_p);
+    if ((fd == usb_fd) && (last_termios_set == 1)) {
+        termios_p = &last_termios;
+        debug_termios("faked", termios_p);
+        response = 0;
+    } else if (fd == usb_fd) {
+        response = next_tcgetattr(fd, termios_p);
+        last_termios = *termios_p;
+        last_termios_set = 1;
+        debug_termios("real", termios_p);
+    } else {
+        response = next_tcgetattr(fd, termios_p);
     }
 
     return response;
@@ -115,12 +156,6 @@ int open(const char *pathname, int flags, mode_t mode) {
         // Record the file descriptor
         usb_fd = response;
 
-        // TODO Establish communication with the XBee
-        // TODO Confirm the right firmware on local XBee (API mode)
-        // TODO Confirm the right firmware on remote XBee (AT mode)
-        // TODO Get the local XBee address
-        // TODO Set the remote destination to our XBee address
-
         //Debug message
         printf("Opened USB @ fd=%d\n", response);
     }
@@ -133,9 +168,10 @@ int close(int fd) {
     if (fd == usb_fd) {
         // Forget the file descriptor
         usb_fd = 0;
+        last_termios_set = 0;
 
         // Restore settings
-        next_tcsetattr(fd, TCSANOW, &last_termios);
+        next_tcsetattr(fd, TCSANOW | TCSADRAIN, &last_termios);
         debug_termios("restored", &last_termios);
 
         // TODO Set the remote XBee destination back to the original value
