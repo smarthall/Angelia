@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "xbee.h"
 
@@ -6,9 +7,6 @@
 #define HIGH_BYTE(x)    ((uint8_t) (x) >> 8)
 #define LOW_BYTE(x)     ((uint8_t) (x) & 0x00FF)
 #define COMB_BYTE(h,l)  ((uint16_t) ((h << 8) + (l)))
-
-// Other defines
-#define XBEE_PADDING 4
 
 // API Value Codes
 #define XBEE_START    0x7E
@@ -38,7 +36,7 @@
 #define LOC_DATA     0x03
 
 uint8_t *make_xbee_packet(uint16_t length) {
-    uint8_t *packet = malloc((length + XBEE_PADDING) * sizeof(uint8_t));
+    uint8_t *packet = malloc(length + XBEE_PADDING);
     uint8_t checksum;
     int i;
 
@@ -49,16 +47,21 @@ uint8_t *make_xbee_packet(uint16_t length) {
     return packet;
 }
 
+void print_xbee_packet(uint8_t *packet) {
+    int i, length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L] + XBEE_PADDING);
+    printf("XBee Packet: 0x");
+    for (i = 0; i < length; i++) {
+        printf("%02x", packet[i]);
+    }
+    printf("\n");
+}
+
 void xbee_calc_checksum(uint8_t *packet) {
-    uint8_t *current, *end, checksum;
+    uint8_t checksum = 0, i;
     uint16_t length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
 
-    current = packet + LOC_DATA;
-    end = packet + LOC_DATA + length;
-
-    while (current < end) {
-        checksum += *current;
-        current++;
+    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
+        checksum += packet[i];
     }
 
     packet[LOC_DATA + length] = 0xFF - checksum;
@@ -74,14 +77,15 @@ uint8_t *xbee_at_packet(const char *at_command) {
 }
 
 uint8_t *xbee_at_packet_param(const char *at_command, uint16_t paramlen, const uint8_t *param) {
-    uint16_t payloadlen = 2 + paramlen;
+    uint16_t payloadlen = 4 + paramlen;
     uint8_t *packet;
 
     packet = make_xbee_packet(payloadlen);
     packet[LOC_DATA] = XBEE_CMD_AT;
-    packet[LOC_DATA + 1] = at_command[0];
-    packet[LOC_DATA + 2] = at_command[1];
-    if (paramlen > 0) memcpy(packet + LOC_DATA + 3, param, paramlen);
+    packet[LOC_DATA + 1] = 0x52;
+    packet[LOC_DATA + 2] = at_command[0];
+    packet[LOC_DATA + 3] = at_command[1];
+    if (paramlen > 0) memcpy(packet + LOC_DATA + 4, param, paramlen);
 
     xbee_calc_checksum(packet);
 

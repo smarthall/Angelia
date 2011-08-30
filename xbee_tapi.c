@@ -67,7 +67,8 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
     if (fildes == usb_fd) {
         if (xbee_is_init == 0) {
             // TODO Confirm the right firmware on local XBee (API mode)
-            packet = xbee_at_packet("VR");
+            packet = xbee_at_packet("NJ");
+            print_xbee_packet(packet);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
             free_xbee_packet(packet);
 
@@ -100,6 +101,8 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
         resp = next_write(fildes, packet, xbee_packet_size(packet));
         free_xbee_packet(packet);
+
+        return nbyte;
     }
 
     return next_write(fildes, buf, nbyte);
