@@ -70,22 +70,28 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
             // TODO Confirm the right firmware on local XBee (API mode)
             packet = xbee_at_packet("VR");
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
 
             // TODO Confirm the right firmware on remote XBee (AT mode)
             packet = xbee_rat_packet("VR", remote);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
 
             // TODO Get the local XBee address
             packet = xbee_at_packet("SH");
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
             packet = xbee_at_packet("SL");
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
 
             // TODO Set the remote destination to our XBee address
             packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
             packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
+            free_xbee_packet(packet);
 
             // We've initialized the XBee
             xbee_is_init = 1;
