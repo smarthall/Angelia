@@ -130,4 +130,41 @@ uint8_t *xbee_tx_packet(uint8_t *dest64, uint8_t options, uint16_t datalen, cons
     return packet;
 }
 
+int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
+    struct timeval to1, to2; // Max time to wait for data
+    fd_set read_fds; // The filedescriptors we're reading from
+    int fd_count; // The number of fds with data
+    size_t length; // The amount of data received so far
+    size_t readlen; // The amount we just read
+    uint8_t *p;
+
+    to1.tv_sec = timeout / 1000L;
+    to1.tv_usec = (timeout % 1000L) * 1000;
+    to2 = to1;
+
+    p = buf;
+
+    while (length < buflen) {
+        // Wait for some data
+        FD_ZERO(&read_fds);
+        FD_SET(fd, &read_fds);
+
+        fd_count = select(fd + 1, &read_fds, NULL, NULL, &to2);
+        if (fd_count == 0) return -1;
+        if (fd_count == -1) return -1;
+
+        // Read the data
+        readlen = read(fd, p, (buflen - lenght > 1024) ? 1024 : buflen - length);
+        if (rc < 0) return -1;
+
+        // Move pointers, update length
+        p += readlen;
+        len += readlen;
+    }
+
+    // We hopefully have a packet now
+    // TODO verify the packet
+    return 0;
+}
+
 
