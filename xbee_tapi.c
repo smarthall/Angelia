@@ -16,8 +16,8 @@
 #include "xbee.h"
 
 // File Descriptor of the USB device
-int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
-struct termios last_termios;
+static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
+static struct termios last_termios;
 
 // Serial Handling
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
