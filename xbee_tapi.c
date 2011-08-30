@@ -31,15 +31,22 @@ static int (*next_select)(int nfds, fd_set *readfds, fd_set *writefds, fd_set *e
 // Lower level IOCTLS
 static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
 
-int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
-    if (next_select == NULL) next_select = dlsym(RTLD_NEXT, "select");
+void __attribute__ ((constructor)) xbee_tapi_init(void) {
+    next_select = dlsym(RTLD_NEXT, "select");
+    next_read = dlsym(RTLD_NEXT, "read");
+    next_write = dlsym(RTLD_NEXT, "write");
+    next_tcsetattr = dlsym(RTLD_NEXT, "tcsetattr");
+    next_tcgetattr = dlsym(RTLD_NEXT, "tcgetattr");
+    next_open = dlsym(RTLD_NEXT, "open");
+    next_close = dlsym(RTLD_NEXT, "close");
+    next_ioctl = dlsym(RTLD_NEXT, "ioctl");
+}
 
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
     return next_select(nfds, readfds, writefds, exceptfds, timeout);
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
-     if (next_read == NULL) next_read = dlsym(RTLD_NEXT, "read");
-
      /*if (fildes == usb_fd) {
          printf("<");
          fflush(stdout);
@@ -49,8 +56,6 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-     if (next_write == NULL) next_write = dlsym(RTLD_NEXT, "write");
-
      /*if (fildes == usb_fd) {
          printf(">");
          fflush(stdin);
@@ -61,8 +66,6 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     struct termios local_term = *termios_p;
-
-    if (next_tcsetattr == NULL) next_tcsetattr = dlsym(RTLD_NEXT, "tcsetattr");
 
     if (fd == usb_fd) {
         // Store the settings for the close
@@ -90,8 +93,6 @@ int tcgetattr(int fd, struct termios *termios_p) {
     int ibaud, obaud, parity, stop;
     int response;
 
-    if (next_tcgetattr == NULL) next_tcgetattr = dlsym(RTLD_NEXT, "tcgetattr");
-
     response = next_tcgetattr(fd, termios_p);
 
     if (fd == usb_fd) {
@@ -104,8 +105,6 @@ int tcgetattr(int fd, struct termios *termios_p) {
 int open(const char *pathname, int flags, mode_t mode) {
     int response;
     const char *usbpath = "/dev/ttyACM0";
-
-    if (next_open == NULL) next_open = dlsym(RTLD_NEXT, "open");
 
     // TODO Gather configuration from environment
 
@@ -130,8 +129,6 @@ int open(const char *pathname, int flags, mode_t mode) {
 }
 
 int close(int fd) {
-    if (next_close == NULL) next_close = dlsym(RTLD_NEXT, "close");
-
     // If the USB device is getting closed
     if (fd == usb_fd) {
         // Forget the file descriptor
@@ -154,7 +151,6 @@ int close(int fd) {
 int ioctl(int fd, unsigned long int request, void *data)
 {
   unsigned int *flags = (unsigned int *)data;
-  if (next_ioctl == NULL) next_ioctl = dlsym(RTLD_NEXT, "ioctl");
 
   if (usb_fd != 0 && fd == usb_fd) {
       printf("IOCTL (0x%04X) ", request);
