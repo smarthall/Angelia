@@ -153,7 +153,7 @@ int tcgetattr(int fd, struct termios *termios_p) {
 
 int open(const char *pathname, int flags, mode_t mode) {
     int response;
-    const char *usbpath = "/dev/ttyACM0";
+    const char *usbpath = "/dev/ttyUSB0";
 
     // TODO Gather configuration from environment
 
