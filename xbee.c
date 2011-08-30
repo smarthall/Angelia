@@ -123,7 +123,7 @@ uint8_t *xbee_tx_packet(uint8_t *dest64, uint8_t options, uint16_t datalen, cons
     packet[LOC_DATA + 4] = 0xFE;
     packet[LOC_DATA + 5] = 0x00;
     packet[LOC_DATA + 6] = options;
-    if (paramlen > 0) memcpy(packet + LOC_DATA + 7, data, datalen);
+    if (datalen > 0) memcpy(packet + LOC_DATA + 7, data, datalen);
 
     xbee_calc_checksum(packet);
 
