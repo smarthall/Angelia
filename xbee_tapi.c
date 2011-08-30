@@ -96,7 +96,10 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
             xbee_is_init = 1;
         }
 
-        // TODO Send the packet
+        // Send the packet
+        packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
+        resp = next_write(fildes, packet, xbee_packet_size(packet));
+        free_xbee_packet(packet);
     }
 
     return next_write(fildes, buf, nbyte);
