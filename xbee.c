@@ -111,7 +111,7 @@ uint8_t *xbee_rat_packet_param(const char *at_command, uint8_t *dest64, uint16_t
     return packet;
 }
 
-uint8_t *xbee_tx_packet(const char *at_command, uint8_t *dest64, uint8_t options, uint16_t datalen, const uint8_t *data) {
+uint8_t *xbee_tx_packet(uint8_t *dest64, uint8_t options, uint16_t datalen, const uint8_t *data) {
     uint16_t payloadlen = 12 + datalen;
     uint8_t *packet;
 

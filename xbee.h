@@ -17,5 +17,5 @@ uint8_t *xbee_at_packet(const char *at_command);
 uint8_t *xbee_at_packet_param(const char *at_command, uint16_t paramlen, const uint8_t *param);
 uint8_t *xbee_rat_packet(const char *at_command, uint8_t *dest64);
 uint8_t *xbee_rat_packet_param(const char *at_command, uint8_t *dest64, uint16_t paramlen, const uint8_t *param);
-uint8_t *xbee_tx_packet(const char *at_command, uint8_t *dest64, uint8_t options, uint16_t datalen, const uint8_t *data);
+uint8_t *xbee_tx_packet(uint8_t *dest64, uint8_t options, uint16_t datalen, const uint8_t *data);
 
