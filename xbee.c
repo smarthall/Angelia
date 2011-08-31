@@ -158,7 +158,7 @@ int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
         if (fd_count == -1) return -1;
 
         // Read the data
-        readlen = read(fd, p, (buflen - lenght > 1024) ? 1024 : buflen - length);
+        readlen = read(fd, p, (buflen - length > 1024) ? 1024 : buflen - length);
         if (rc < 0) return -1;
 
         // Move pointers, update length
