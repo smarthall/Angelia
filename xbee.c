@@ -141,6 +141,8 @@ int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
     size_t length; // The amount of data received so far
     size_t readlen; // The amount we just read
     uint8_t *p;
+    uint8_t checksum = 0, i;
+    uint16_t length;
 
     to1.tv_sec = timeout / 1000L;
     to1.tv_usec = (timeout % 1000L) * 1000;
@@ -150,6 +152,7 @@ int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
 
     while (length < buflen) {
         // Wait for some data
+reselect:
         FD_ZERO(&read_fds);
         FD_SET(fd, &read_fds);
 
@@ -166,9 +169,17 @@ int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
         len += readlen;
     }
 
-    // We hopefully have a packet now
-    // TODO verify the packet
-    return 0;
+    // verify the packet
+    length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
+
+    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
+        checksum += packet[i];
+    }
+
+    checksum = 0xFF - checksum;
+
+    if (packet[LOC_DATA + length] == checksum) return 0;
+    return -1;
 }
 
 
