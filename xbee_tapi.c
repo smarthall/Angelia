@@ -214,3 +214,39 @@ int ioctl(int fd, unsigned long int request, void *data)
   return next_ioctl(fd, request, data);
 }
 
+int xbee_read(uint8_t *buf, size_t buflen) {
+    struct timeval to1 to2;
+    fd_set read_fds;
+    int fd_count;
+    size_t length = 0, readlen;
+    uint8_t *p;
+
+    to1.tv_sec = 2;
+    to2.tv_usec = 0;
+
+    p = buf;
+
+    while (length < buflen) {
+        // Get setup
+        to2 = to1;
+        FD_ZERO(&read_fds);
+        FD_SET(usb_fd, &read_fds);
+
+        // Wait for data
+        fd_count = next_select(fd + 1, &read_fds, NULL, NULL, &to2);
+        if (fd_count == 0) return length; // Timeout
+        if (fd_count == -1) return -1; // Error
+
+        // Read the data
+        readlen = next_read(usb_fd, p (buflen - length > 1024) ? 1024 : buflen - length);
+        if (readlen < 0) return -1; // Read Error
+
+        // Move pointers, update length
+        p += readlen;
+        length += readlen;
+    }
+
+    return length;
+}
+
+
