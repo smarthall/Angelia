@@ -142,7 +142,7 @@ int xbee_read(int fd, long timeout, uint8_t *buf, size_t buflen) {
     size_t readlen; // The amount we just read
     uint8_t *p;
     uint8_t checksum = 0, i;
-    uint16_t length;
+    uint16_t pktlen;
 
     to1.tv_sec = timeout / 1000L;
     to1.tv_usec = (timeout % 1000L) * 1000;
@@ -162,23 +162,23 @@ reselect:
 
         // Read the data
         readlen = read(fd, p, (buflen - length > 1024) ? 1024 : buflen - length);
-        if (rc < 0) return -1;
+        if (readlen < 0) return -1;
 
         // Move pointers, update length
         p += readlen;
-        len += readlen;
+        length += readlen;
     }
 
     // verify the packet
-    length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
+    pktlen = COMB_BYTE(buf[LOC_LENGTH_H], buf[LOC_LENGTH_L]);
 
-    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
-        checksum += packet[i];
+    for (i = LOC_DATA; i < (LOC_DATA + pktlen + 1); i++) {
+        checksum += buf[i];
     }
 
     checksum = 0xFF - checksum;
 
-    if (packet[LOC_DATA + length] == checksum) return 0;
+    if (buf[LOC_DATA + pktlen] == checksum) return 0;
     return -1;
 }
 
