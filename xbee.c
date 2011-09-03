@@ -118,7 +118,7 @@ uint8_t *xbee_tx_packet(uint8_t *dest64, uint8_t options, uint16_t datalen, cons
 
     packet = make_xbee_packet(payloadlen);
     packet[LOC_DATA] = XBEE_CMD_TX;
-    packet[LOC_DATA + 1] = 0;
+    packet[LOC_DATA + 1] = 77;
     memcpy(packet + LOC_DATA + 2, dest64, sizeof(uint8_t) * 8);
     packet[LOC_DATA + 10] = 0xFF;
     packet[LOC_DATA + 11] = 0xFE;

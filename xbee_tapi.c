@@ -19,6 +19,7 @@
 static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
 static uint8_t local_addr[8];
 static struct termios last_termios;
+static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22};
 
 // Serial Handling
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
@@ -59,93 +60,16 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-    uint8_t *packet, i;
+    uint8_t *packet;
     uint8_t buffer[1024];
-    uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22};
     int resp;
 
     if (fildes == usb_fd) {
-        if (xbee_is_init == 0) {
-            // TODO Confirm the right firmware on local XBee (API mode)
-            packet = xbee_at_packet("VR");
-            memset(buffer, 0, 1024);
-            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
-                print_xbee_packet("Sent", packet);
-                resp = next_write(fildes, packet, xbee_packet_size(packet));
-                xbee_read(buffer, 1024);
-                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-            }
-            free_xbee_packet(packet);
-
-            // TODO Confirm the right firmware on remote XBee (AT mode)
-            //packet = xbee_rat_packet("VR", remote);
-            //print_xbee_packet("Sent", packet);
-            //resp = next_write(fildes, packet, xbee_packet_size(packet));
-            //free_xbee_packet(packet);
-
-            // TODO Get the local XBee address
-            packet = xbee_at_packet("SH");
-            memset(buffer, 0, 1024);
-            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
-                print_xbee_packet("Sent", packet);
-                resp = next_write(fildes, packet, xbee_packet_size(packet));
-                xbee_read(buffer, 1024);
-                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-            }
-            free_xbee_packet(packet);
-
-            memcpy(local_addr, buffer + 8, 4);
-
-            packet = xbee_at_packet("SL");
-            memset(buffer, 0, 1024);
-            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
-                print_xbee_packet("Sent", packet);
-                resp = next_write(fildes, packet, xbee_packet_size(packet));
-                xbee_read(buffer, 1024);
-                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-            }
-            free_xbee_packet(packet);
-
-            memcpy(local_addr + 4, buffer + 8, 4);
-
-            printf("Our Address: ");
-            for (i=0; i < 8; i++) {
-                printf("%02x", local_addr[i]);
-            }
-            printf("\n");
-
-
-            // TODO Set the remote destination to our XBee address
-            packet = xbee_rat_packet_param("DH", remote, 4, local_addr);
-            memset(buffer, 0, 1024);
-            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
-                print_xbee_packet("Sent", packet);
-                resp = next_write(fildes, packet, xbee_packet_size(packet));
-                xbee_read(buffer, 1024);
-                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-            }
-            free_xbee_packet(packet);
-
-
-            packet = xbee_rat_packet_param("DL", remote, 4, local_addr + 4);
-            memset(buffer, 0, 1024);
-            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
-                print_xbee_packet("Sent", packet);
-                resp = next_write(fildes, packet, xbee_packet_size(packet));
-                xbee_read(buffer, 1024);
-                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-            }
-            free_xbee_packet(packet);
-
-            // We've initialized the XBee
-            xbee_is_init = 1;
-        }
 
         // Send the packet
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
         memset(buffer, 0, 1024);
-        while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+        while (xbee_frame_type(buffer) != XBEE_CMD_TS) {
             print_xbee_packet("Sent", packet);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
             xbee_read(buffer, 1024);
@@ -208,6 +132,9 @@ int tcgetattr(int fd, struct termios *termios_p) {
 int open(const char *pathname, int flags, mode_t mode) {
     int response;
     const char *usbpath = "/dev/ttyUSB0";
+    uint8_t *packet, i;
+    uint8_t buffer[1024];
+    int resp;
 
     // TODO Gather configuration from environment
 
@@ -217,6 +144,82 @@ int open(const char *pathname, int flags, mode_t mode) {
     if (response != -1 && strcmp(usbpath, pathname) == 0) {
         // Record the file descriptor
         usb_fd = response;
+
+        if (xbee_is_init == 0) {
+            // TODO Confirm the right firmware on local XBee (API mode)
+            packet = xbee_at_packet("VR");
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(usb_fd, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+            // TODO Confirm the right firmware on remote XBee (AT mode)
+            //packet = xbee_rat_packet("VR", remote);
+            //print_xbee_packet("Sent", packet);
+            //resp = next_write(fildes, packet, xbee_packet_size(packet));
+            //free_xbee_packet(packet);
+
+            // TODO Get the local XBee address
+            packet = xbee_at_packet("SH");
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(usb_fd, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+            memcpy(local_addr, buffer + 8, 4);
+
+            packet = xbee_at_packet("SL");
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(usb_fd, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+            memcpy(local_addr + 4, buffer + 8, 4);
+
+            printf("Our Address: ");
+            for (i=0; i < 8; i++) {
+                printf("%02x", local_addr[i]);
+            }
+            printf("\n");
+
+
+            // TODO Set the remote destination to our XBee address
+            packet = xbee_rat_packet_param("DH", remote, 4, local_addr);
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(usb_fd, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+
+            packet = xbee_rat_packet_param("DL", remote, 4, local_addr + 4);
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(usb_fd, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+            // We've initialized the XBee
+            xbee_is_init = 1;
+        }
 
         //Debug message
         printf("Opened USB @ fd=%d\n", response);
@@ -231,6 +234,7 @@ int close(int fd) {
         // Forget the file descriptor
         usb_fd = 0;
         last_termios_set = 0;
+        xbee_is_init = 0;
 
         // Restore settings
         next_tcsetattr(fd, TCSANOW | TCSADRAIN, &last_termios);
@@ -248,22 +252,42 @@ int close(int fd) {
 
 int ioctl(int fd, unsigned long int request, void *data)
 {
-  unsigned int *flags = (unsigned int *)data;
+    unsigned int *flags = (unsigned int *)data;
+    uint8_t dtr_low = 0x04, dtr_high = 0x05, *packet, dtr_status;
+    uint8_t buffer[256];
+    int resp;
 
-  if (usb_fd != 0 && fd == usb_fd) {
-      printf("IOCTL (0x%04X) ", request);
-      if (request == TIOCMGET) {
-        printf("TIOCMGET ");
-      } else if (request == TIOCMSET) {
-        printf("TIOCMSET ");
-        if (CHECK_FLAG(*flags, TIOCM_DTR)) printf("DTR ");
-        if (CHECK_FLAG(*flags, TIOCM_RTS)) printf("RTS ");
-      }
-      printf("\n");
-      return 0;
-  }
+    if (usb_fd != 0 && fd == usb_fd) {
+        printf("IOCTL (0x%04X) ", request);
+        if (request == TIOCMGET) {
+          printf("TIOCMGET\n");
+        } else if (request == TIOCMSET) {
+          printf("TIOCMSET ");
+          if (CHECK_FLAG(*flags, TIOCM_DTR)) {
+              printf("DTR ");
+              dtr_status = dtr_high;
+          } else {
+              printf("NODTR ");
+              dtr_status = dtr_low;
+          }
+          printf("\n");
 
-  return next_ioctl(fd, request, data);
+          // TODO Set the remote destination to our XBee address
+          packet = xbee_rat_packet_param("D3", remote, 1, &dtr_status);
+          memset(buffer, 0, 256);
+          while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+              print_xbee_packet("Sent", packet);
+              resp = next_write(fd, packet, xbee_packet_size(packet));
+              xbee_read(buffer, 1024);
+              if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+          }
+          free_xbee_packet(packet);
+
+        }
+        return 0;
+    }
+
+    return next_ioctl(fd, request, data);
 }
 
 int xbee_read(uint8_t *buf, size_t buflen) {
@@ -274,7 +298,7 @@ int xbee_read(uint8_t *buf, size_t buflen) {
     uint8_t *p;
 
     to1.tv_sec = 0;
-    to1.tv_usec = 70000;
+    to1.tv_usec = 90000;
 
     p = buf;
 
