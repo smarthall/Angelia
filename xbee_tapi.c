@@ -51,10 +51,15 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
-     /*if (fildes == usb_fd) {
-         printf("<");
-         fflush(stdout);
-     }*/
+     uint8_t buffer[256];
+
+     if (fildes == usb_fd) {
+        memset(buffer, 0, 256);
+        while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+            xbee_read(buffer, 256);
+            if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+        }
+     }
 
      return next_read(fildes, buf, nbyte);
 }
@@ -264,21 +269,21 @@ int ioctl(int fd, unsigned long int request, void *data)
         } else if (request == TIOCMSET) {
           printf("TIOCMSET ");
           if (CHECK_FLAG(*flags, TIOCM_DTR)) {
-              printf("DTR ");
+              printf("DTR\n");
               dtr_status = dtr_high;
           } else {
-              printf("NODTR ");
+              printf("NODTR\n");
               dtr_status = dtr_low;
           }
-          printf("\n");
 
           // TODO Set the remote destination to our XBee address
           packet = xbee_rat_packet_param("D3", remote, 1, &dtr_status);
+          printf("DIO3 Set to: 0x%02x\n", dtr_status);
           memset(buffer, 0, 256);
           while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
               print_xbee_packet("Sent", packet);
               resp = next_write(fd, packet, xbee_packet_size(packet));
-              xbee_read(buffer, 1024);
+              xbee_read(buffer, 256);
               if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
           }
           free_xbee_packet(packet);

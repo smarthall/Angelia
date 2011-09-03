@@ -93,7 +93,7 @@ uint8_t *xbee_rat_packet(const char *at_command, uint8_t *dest64) {
 }
 
 uint8_t *xbee_rat_packet_param(const char *at_command, uint8_t *dest64, uint16_t paramlen, const uint8_t *param) {
-    uint16_t payloadlen = 14 + paramlen;
+    uint16_t payloadlen = 15 + paramlen;
     uint8_t *packet;
 
     packet = make_xbee_packet(payloadlen);
@@ -102,7 +102,7 @@ uint8_t *xbee_rat_packet_param(const char *at_command, uint8_t *dest64, uint16_t
     memcpy(packet + LOC_DATA + 2, dest64, sizeof(uint8_t) * 8);
     packet[LOC_DATA + 10] = 0xFF;
     packet[LOC_DATA + 11] = 0xFE;
-    packet[LOC_DATA + 12] = 0x20;
+    packet[LOC_DATA + 12] = 0x02;
     packet[LOC_DATA + 13] = at_command[0];
     packet[LOC_DATA + 14] = at_command[1];
     if (paramlen > 0) memcpy(packet + LOC_DATA + 15, param, sizeof(uint8_t) * paramlen);
