@@ -17,6 +17,7 @@
 
 // File Descriptor of the USB device
 static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
+static int local_addr[8];
 static struct termios last_termios;
 
 // Serial Handling
@@ -61,40 +62,55 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
     uint8_t *packet;
     uint8_t buffer[1024];
     uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t remote[8] = {0xFE, 0x00, 0x03, 0x00, 0x22, 0x60, 0xAE, 0x0F};
-    uint8_t localaddress_h[4], localaddress_l[4];
+    uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22};
     int resp;
 
     if (fildes == usb_fd) {
         if (xbee_is_init == 0) {
             // TODO Confirm the right firmware on local XBee (API mode)
             packet = xbee_at_packet("VR");
-            print_xbee_packet("Sent", packet);
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(fildes, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
             free_xbee_packet(packet);
-            xbee_read(buffer, 1024);
-            print_xbee_packet("Recieved", buffer);
 
             // TODO Confirm the right firmware on remote XBee (AT mode)
-            packet = xbee_rat_packet("VR", remote);
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
-            free_xbee_packet(packet);
+            //packet = xbee_rat_packet("VR", remote);
+            //print_xbee_packet("Sent", packet);
+            //resp = next_write(fildes, packet, xbee_packet_size(packet));
+            //free_xbee_packet(packet);
 
             // TODO Get the local XBee address
             packet = xbee_at_packet("SH");
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(fildes, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
             free_xbee_packet(packet);
             packet = xbee_at_packet("SL");
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(fildes, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
             free_xbee_packet(packet);
 
             // TODO Set the remote destination to our XBee address
-            packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
-            free_xbee_packet(packet);
-            packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
-            free_xbee_packet(packet);
+            //packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
+            //resp = next_write(fildes, packet, xbee_packet_size(packet));
+            //free_xbee_packet(packet);
+            //packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
+            //resp = next_write(fildes, packet, xbee_packet_size(packet));
+            //free_xbee_packet(packet);
 
             // We've initialized the XBee
             xbee_is_init = 1;
@@ -212,6 +228,7 @@ int ioctl(int fd, unsigned long int request, void *data)
         if (CHECK_FLAG(*flags, TIOCM_RTS)) printf("RTS ");
       }
       printf("\n");
+      return 0;
   }
 
   return next_ioctl(fd, request, data);

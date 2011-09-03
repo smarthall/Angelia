@@ -8,27 +8,6 @@
 #define LOW_BYTE(x)     ((uint8_t) (x) & 0x00FF)
 #define COMB_BYTE(h,l)  ((uint16_t) ((h << 8) + (l)))
 
-// API Value Codes
-#define XBEE_START    0x7E
-#define XBEE_CMD_AT   0x08
-#define XBEE_CMD_ATQ  0x09
-#define XBEE_CMD_TX   0x10
-#define XBEE_CMD_TXC  0x11
-#define XBEE_CMD_RAT  0x17
-#define XBEE_CMD_CSR  0x21
-#define XBEE_CMD_ATR  0x88
-#define XBEE_CMD_MS   0x8A
-#define XBEE_CMD_TS   0x8B
-#define XBEE_CMD_RP   0x90
-#define XBEE_CMD_RXI  0x91
-#define XBEE_CMD_SRXI 0x92
-#define XBEE_CMD_SRI  0x94
-#define XBEE_CMD_NII  0x95
-#define XBEE_CMD_RATR 0x97
-#define XBEE_CMD_FWU  0xA0
-#define XBEE_CMD_RII  0xA1
-#define XBEE_CMD_MRRI 0xA3
-
 // Packet Position Codes
 #define LOC_START    0x00
 #define LOC_LENGTH_H 0x01
@@ -60,7 +39,7 @@ void xbee_calc_checksum(uint8_t *packet) {
     uint8_t checksum = 0, i;
     uint16_t length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
 
-    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
+    for (i = LOC_DATA; i < (LOC_DATA + length); i++) {
         checksum += packet[i];
     }
 
@@ -72,11 +51,17 @@ int valid_xbee_packet(const uint8_t *packet) {
     uint8_t checksum = 0, i;
     uint16_t length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
 
-    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
+    for (i = LOC_DATA; i < (LOC_DATA + length); i++) {
         checksum += packet[i];
     }
 
     return (packet[LOC_DATA + length] == (0xFF - checksum));
+}
+
+uint8_t xbee_frame_type(const uint8_t *packet) {
+    if (!valid_xbee_packet(packet)) return 0;
+
+    return packet[LOC_DATA];
 }
 
 void free_xbee_packet(uint8_t *packet) {
