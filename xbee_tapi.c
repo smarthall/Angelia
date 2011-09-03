@@ -19,7 +19,8 @@
 static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
 static uint8_t local_addr[8];
 static struct termios last_termios;
-static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22};
+static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22}; // G
+//static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x61, 0x58, 0xe5}; // F
 
 // Serial Handling
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
