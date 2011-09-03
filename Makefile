@@ -8,7 +8,7 @@ serial.o: serial.c serial.h
 xbee.o: xbee.c xbee.h
 	gcc -fPIC -c xbee.c -o xbee.o
 
-xbee_tapi.o: xbee_tapi.c
+xbee_tapi.o: xbee_tapi.c xbee.h
 	gcc -c -fPIC -o xbee_tapi.o xbee_tapi.c
 
 xbee_tapi.so: xbee_tapi.o serial.o xbee.o
