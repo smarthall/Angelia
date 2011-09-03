@@ -47,9 +47,9 @@ uint8_t *make_xbee_packet(uint16_t length) {
     return packet;
 }
 
-void print_xbee_packet(uint8_t *packet) {
+void print_xbee_packet(const char *msg, const uint8_t *packet) {
     int i, length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L] + XBEE_PADDING);
-    printf("XBee Packet: 0x");
+    printf("XBee Packet(%s): 0x", msg);
     for (i = 0; i < length; i++) {
         printf("%02x", packet[i]);
     }
@@ -66,6 +66,17 @@ void xbee_calc_checksum(uint8_t *packet) {
 
     packet[LOC_DATA + length] = 0xFF - checksum;
 
+}
+
+int valid_xbee_packet(const uint8_t *packet) {
+    uint8_t checksum = 0, i;
+    uint16_t length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
+
+    for (i = LOC_DATA; i < (LOC_DATA + length + 1); i++) {
+        checksum += packet[i];
+    }
+
+    return (packet[LOC_DATA + length] == (0xFF - checksum));
 }
 
 void free_xbee_packet(uint8_t *packet) {

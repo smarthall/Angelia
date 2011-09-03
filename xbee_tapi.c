@@ -59,6 +59,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
     uint8_t *packet;
+    uint8_t buffer[1024];
     uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t remote[8] = {0xFE, 0x00, 0x03, 0x00, 0x22, 0x60, 0xAE, 0x0F};
     uint8_t localaddress_h[4], localaddress_l[4];
@@ -68,9 +69,11 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
         if (xbee_is_init == 0) {
             // TODO Confirm the right firmware on local XBee (API mode)
             packet = xbee_at_packet("VR");
-            print_xbee_packet(packet);
+            print_xbee_packet("Sent", packet);
             resp = next_write(fildes, packet, xbee_packet_size(packet));
             free_xbee_packet(packet);
+            xbee_read(buffer, 1024);
+            print_xbee_packet("Recieved", buffer);
 
             // TODO Confirm the right firmware on remote XBee (AT mode)
             packet = xbee_rat_packet("VR", remote);
@@ -215,30 +218,29 @@ int ioctl(int fd, unsigned long int request, void *data)
 }
 
 int xbee_read(uint8_t *buf, size_t buflen) {
-    struct timeval to1 to2;
+    struct timeval to1, to2;
     fd_set read_fds;
     int fd_count;
     size_t length = 0, readlen;
     uint8_t *p;
 
-    to1.tv_sec = 2;
-    to2.tv_usec = 0;
+    to1.tv_sec = 0;
+    to1.tv_usec = 80000;
 
     p = buf;
 
     while (length < buflen) {
         // Get setup
-        to2 = to1;
         FD_ZERO(&read_fds);
         FD_SET(usb_fd, &read_fds);
 
         // Wait for data
-        fd_count = next_select(fd + 1, &read_fds, NULL, NULL, &to2);
+        fd_count = next_select(usb_fd + 1, &read_fds, NULL, NULL, &to1);
         if (fd_count == 0) return length; // Timeout
         if (fd_count == -1) return -1; // Error
 
         // Read the data
-        readlen = next_read(usb_fd, p (buflen - length > 1024) ? 1024 : buflen - length);
+        readlen = next_read(usb_fd, p, (buflen - length > 1024) ? 1024 : buflen - length);
         if (readlen < 0) return -1; // Read Error
 
         // Move pointers, update length
