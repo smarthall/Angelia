@@ -117,12 +117,26 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
 
 
             // TODO Set the remote destination to our XBee address
-            //packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
-            //resp = next_write(fildes, packet, xbee_packet_size(packet));
-            //free_xbee_packet(packet);
-            //packet = xbee_rat_packet_param("DL", remote, 4, localaddress_l);
-            //resp = next_write(fildes, packet, xbee_packet_size(packet));
-            //free_xbee_packet(packet);
+            packet = xbee_rat_packet_param("DH", remote, 4, local_addr);
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(fildes, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
+
+
+            packet = xbee_rat_packet_param("DL", remote, 4, local_addr + 4);
+            memset(buffer, 0, 1024);
+            while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+                print_xbee_packet("Sent", packet);
+                resp = next_write(fildes, packet, xbee_packet_size(packet));
+                xbee_read(buffer, 1024);
+                if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+            }
+            free_xbee_packet(packet);
 
             // We've initialized the XBee
             xbee_is_init = 1;
@@ -130,7 +144,13 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
 
         // Send the packet
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
-        resp = next_write(fildes, packet, xbee_packet_size(packet));
+        memset(buffer, 0, 1024);
+        while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
+            print_xbee_packet("Sent", packet);
+            resp = next_write(fildes, packet, xbee_packet_size(packet));
+            xbee_read(buffer, 1024);
+            if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+        }
         free_xbee_packet(packet);
 
         return nbyte;
@@ -254,7 +274,7 @@ int xbee_read(uint8_t *buf, size_t buflen) {
     uint8_t *p;
 
     to1.tv_sec = 0;
-    to1.tv_usec = 80000;
+    to1.tv_usec = 70000;
 
     p = buf;
 
