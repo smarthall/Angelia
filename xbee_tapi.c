@@ -65,11 +65,19 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-    uint8_t *packet;
+    uint8_t *packet, i;
+    uint8_t *b;
     uint8_t buffer[1024];
     int resp;
 
     if (fildes == usb_fd) {
+        b = (uint8_t*) buf;
+
+        printf("Serial Write: 0x");
+        for (i = 0; i < nbyte; i++) {
+            printf("%02x", b[i]);
+        }
+        printf("\n");
 
         // Send the packet
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
