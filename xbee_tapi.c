@@ -17,7 +17,7 @@
 
 // File Descriptor of the USB device
 static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
-static int local_addr[8];
+static uint8_t local_addr[8];
 static struct termios last_termios;
 
 // Serial Handling
@@ -59,7 +59,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
-    uint8_t *packet;
+    uint8_t *packet, i;
     uint8_t buffer[1024];
     uint8_t coordinator[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22};
@@ -94,6 +94,9 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
                 if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
             }
             free_xbee_packet(packet);
+
+            memcpy(local_addr, buffer + 8, 4);
+
             packet = xbee_at_packet("SL");
             memset(buffer, 0, 1024);
             while (xbee_frame_type(buffer) != XBEE_CMD_ATR) {
@@ -103,6 +106,15 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
                 if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
             }
             free_xbee_packet(packet);
+
+            memcpy(local_addr + 4, buffer + 8, 4);
+
+            printf("Our Address: ");
+            for (i=0; i < 8; i++) {
+                printf("%02x", local_addr[i]);
+            }
+            printf("\n");
+
 
             // TODO Set the remote destination to our XBee address
             //packet = xbee_rat_packet_param("DH", remote, 4, localaddress_h);
