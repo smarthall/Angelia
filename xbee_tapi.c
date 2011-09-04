@@ -48,14 +48,25 @@ void __attribute__ ((constructor)) xbee_tapi_init(void) {
 }
 
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
+    //if (FD_ISSET(usb_fd, readfds)) {
+    //    timeout->tv_usec + 50000;
+    //}
+
+    if ((bufcount > 0) && (FD_ISSET(usb_fd, readfds))) {
+        printf("Faking Select() on fd=%d\n", usb_fd);
+        if (readfds != NULL) FD_ZERO(readfds);
+        if (writefds != NULL) FD_ZERO(writefds);
+        if (exceptfds != NULL) FD_ZERO(exceptfds);
+        FD_SET(usb_fd, readfds);
+        return 1;
+    }
+
     return next_select(nfds, readfds, writefds, exceptfds, timeout);
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
     static uint8_t sbuf[1024];
     uint8_t tbuf[256], i, bytesgot, toreturn;
-
-    printf("nbyte = %d\n", nbyte);
 
     if (fildes == usb_fd) {
         if (bufcount == 0) {
@@ -67,13 +78,18 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
             }
 
             // Add the data to the buffer
-            bytesgot = xbee_packet_size(tbuf) - 12;
+            bytesgot = xbee_packet_size(tbuf) - 16;
             memcpy(sbuf, tbuf + 15, bytesgot);
             bufcount += bytesgot;
         }
 
+        printf("Serial Buffer: 0x");
+        for (i = 0; i < bufcount; i++) {
+            printf("%02x", sbuf[i]);
+        }
+        printf("\n");
+
         toreturn = (nbyte < bufcount) ? nbyte : bufcount;
-        printf("Requested = %d, Returning = %d, Have = %d\n", nbyte, toreturn, bufcount);
 
         // Grab data from front of buffer and move down
         memcpy(buf, sbuf, toreturn);
@@ -84,7 +100,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
         }
         printf("\n");
 
-        memmove(sbuf, sbuf + toreturn, toreturn);
+        memmove(sbuf, sbuf + toreturn, bufcount);
         bufcount -= toreturn;
 
         return toreturn;
@@ -111,7 +127,7 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
         // Send the packet
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
         memset(buffer, 0, 1024);
-        print_xbee_packet("Sent", packet);
+        print_xbee_packet("Serial Send", packet);
         resp = next_write(fildes, packet, xbee_packet_size(packet));
         free_xbee_packet(packet);
 
