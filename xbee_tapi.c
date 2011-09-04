@@ -211,8 +211,8 @@ int open(const char *pathname, int flags, mode_t mode) {
             local_term.c_cflag = (CS8 | CREAD | CLOCAL);
             local_term.c_cc[VMIN]  = 1;
             local_term.c_cc[VTIME] = 0;
-            cfsetospeed(&local_term, B9600);
-            cfsetispeed(&local_term, B9600);
+            cfsetospeed(&local_term, B115200);
+            cfsetispeed(&local_term, B115200);
 
             next_tcsetattr(usb_fd, TCSANOW, &local_term);
 
