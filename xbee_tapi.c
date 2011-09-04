@@ -16,7 +16,7 @@
 #include "xbee.h"
 
 // File Descriptor of the USB device
-static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0;
+static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0, bufcount = 0;
 static uint8_t local_addr[8];
 static struct termios last_termios;
 static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22}; // G
@@ -52,17 +52,45 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
-     uint8_t buffer[256];
+    static uint8_t sbuf[1024];
+    uint8_t tbuf[256], i, bytesgot, toreturn;
 
-     if (fildes == usb_fd) {
-        memset(buffer, 0, 256);
-        while (xbee_frame_type(buffer) != XBEE_CMD_RATR) {
-            xbee_read(buffer, 256);
-            if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
+    printf("nbyte = %d\n", nbyte);
+
+    if (fildes == usb_fd) {
+        if (bufcount == 0) {
+            // Wait to a Receive Packet Frame
+            memset(tbuf, 0, 256);
+            while (xbee_frame_type(tbuf) != XBEE_CMD_RP) {
+                xbee_read(tbuf, 256);
+                if (valid_xbee_packet(tbuf)) print_xbee_packet("Serial Recv", tbuf);
+            }
+
+            // Add the data to the buffer
+            bytesgot = xbee_packet_size(tbuf) - 12;
+            memcpy(sbuf, tbuf + 15, bytesgot);
+            bufcount += bytesgot;
         }
-     }
 
-     return next_read(fildes, buf, nbyte);
+        toreturn = (nbyte < bufcount) ? nbyte : bufcount;
+        printf("Requested = %d, Returning = %d, Have = %d\n", nbyte, toreturn, bufcount);
+
+        // Grab data from front of buffer and move down
+        memcpy(buf, sbuf, toreturn);
+
+        printf("Serial Read: 0x");
+        for (i = 0; i < toreturn; i++) {
+            printf("%02x", sbuf[i]);
+        }
+        printf("\n");
+
+        memmove(sbuf, sbuf + toreturn, toreturn);
+        bufcount -= toreturn;
+
+        return toreturn;
+    }
+
+    return next_read(fildes, buf, nbyte);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbyte) {
@@ -83,12 +111,8 @@ ssize_t write(int fildes, const void *buf, size_t nbyte) {
         // Send the packet
         packet = xbee_tx_packet(remote, 0x00, nbyte, buf);
         memset(buffer, 0, 1024);
-        while (xbee_frame_type(buffer) != XBEE_CMD_TS) {
-            print_xbee_packet("Sent", packet);
-            resp = next_write(fildes, packet, xbee_packet_size(packet));
-            xbee_read(buffer, 1024);
-            if (valid_xbee_packet(buffer)) print_xbee_packet("Recv", buffer);
-        }
+        print_xbee_packet("Sent", packet);
+        resp = next_write(fildes, packet, xbee_packet_size(packet));
         free_xbee_packet(packet);
 
         return nbyte;
