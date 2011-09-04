@@ -211,8 +211,8 @@ int open(const char *pathname, int flags, mode_t mode) {
             local_term.c_cflag = (CS8 | CREAD | CLOCAL);
             local_term.c_cc[VMIN]  = 1;
             local_term.c_cc[VTIME] = 0;
-            cfsetospeed(&local_term, B115200);
-            cfsetispeed(&local_term, B115200);
+            cfsetospeed(&local_term, B9600);
+            cfsetispeed(&local_term, B9600);
 
             next_tcsetattr(usb_fd, TCSANOW, &local_term);
 
@@ -364,7 +364,7 @@ int xbee_read(uint8_t *buf, size_t buflen) {
     struct timeval to1, to2;
     fd_set read_fds;
     int fd_count;
-    size_t length = 0, readlen;
+    size_t length = 0, readlen, i;
     uint8_t *p, started = 0;
 
     to1.tv_sec = 0;
@@ -393,10 +393,18 @@ int xbee_read(uint8_t *buf, size_t buflen) {
             p += readlen;
             length += readlen;
         } else {
-            printf("Throwing data away\n");
+            printf("Throwing data away byte 0x%02X\n", *p);
         }
 
         if ((length > 4) && ((xbee_packet_size(buf) + 4) == length) && valid_xbee_packet(buf)) return length;
+        if ((length > 4) && ((xbee_packet_size(buf) + 4) < length)) {
+            printf("Throwing away %d bytes: 0x", length);
+            for (i = 0; i < length; i++) {
+                printf("%02X", buf[i]);
+            }
+            printf("\n");
+            return 0;
+        };
     }
 
     return length;
