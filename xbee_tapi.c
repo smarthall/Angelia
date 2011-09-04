@@ -65,15 +65,15 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
-    static uint8_t sbuf[1024];
-    uint8_t tbuf[256], i, bytesgot, toreturn;
+    static uint8_t sbuf[4096];
+    uint8_t tbuf[1024], i, bytesgot, toreturn;
 
     if (fildes == usb_fd) {
         if (bufcount == 0) {
             // Wait to a Receive Packet Frame
-            memset(tbuf, 0, 256);
+            memset(tbuf, 0, 1024);
             while (xbee_frame_type(tbuf) != XBEE_CMD_RP) {
-                xbee_read(tbuf, 256);
+                xbee_read(tbuf, 1024);
                 if (valid_xbee_packet(tbuf)) print_xbee_packet("Serial Recv", tbuf);
             }
 
@@ -81,9 +81,21 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
             bytesgot = xbee_packet_size(tbuf) - 16;
             memcpy(sbuf, tbuf + 15, bytesgot);
             bufcount += bytesgot;
+        } else {
+            // Wait to a Receive Packet Frame
+            memset(tbuf, 0, 1024);
+            xbee_read(tbuf, 1024);
+            if (valid_xbee_packet(tbuf)) print_xbee_packet("Serial Recv", tbuf);
+
+            if (xbee_frame_type(tbuf) == XBEE_CMD_RP) {
+                // Add the data to the buffer
+                bytesgot = xbee_packet_size(tbuf) - 16;
+                memcpy(sbuf + bufcount, tbuf + 15, bytesgot);
+                bufcount += bytesgot;
+            }
         }
 
-        printf("Serial Buffer: 0x");
+        printf("Serial Buffer (%d bytes): 0x", bufcount);
         for (i = 0; i < bufcount; i++) {
             printf("%02x", sbuf[i]);
         }
@@ -94,7 +106,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
         // Grab data from front of buffer and move down
         memcpy(buf, sbuf, toreturn);
 
-        printf("Serial Read: 0x");
+        printf("Serial Read (%d bytes): 0x", toreturn);
         for (i = 0; i < toreturn; i++) {
             printf("%02x", sbuf[i]);
         }
@@ -145,22 +157,12 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
         last_termios = *termios_p;
         last_termios_set = 1;
 
-        // Change the settings to match the local XBee
-        local_term.c_iflag = IGNBRK;
-        local_term.c_oflag = 0;
-        local_term.c_lflag = 0;
-        local_term.c_cflag = (CS8 | CREAD | CLOCAL);
-        local_term.c_cc[VMIN]  = 1;
-        local_term.c_cc[VTIME] = 0;
-        cfsetospeed(&local_term, B9600);
-        cfsetispeed(&local_term, B9600);
-
         // Some debug messages
         debug_termios("requested", termios_p);
-        debug_termios("actual", &local_term);
+        return 0;
+    } else {
+        return next_tcsetattr(fd, optional_actions, termios_p);
     }
-
-    return next_tcsetattr(fd, optional_actions, &local_term);
 }
 
 int tcgetattr(int fd, struct termios *termios_p) {
@@ -189,6 +191,7 @@ int open(const char *pathname, int flags, mode_t mode) {
     uint8_t *packet, i;
     uint8_t buffer[1024];
     int resp;
+    struct termios local_term;
 
     // TODO Gather configuration from environment
 
@@ -200,6 +203,19 @@ int open(const char *pathname, int flags, mode_t mode) {
         usb_fd = response;
 
         if (xbee_is_init == 0) {
+            next_tcgetattr(usb_fd, &local_term);
+            // Change the settings to match the local XBee
+            local_term.c_iflag = IGNBRK;
+            local_term.c_oflag = 0;
+            local_term.c_lflag = 0;
+            local_term.c_cflag = (CS8 | CREAD | CLOCAL);
+            local_term.c_cc[VMIN]  = 1;
+            local_term.c_cc[VTIME] = 0;
+            cfsetospeed(&local_term, B115200);
+            cfsetispeed(&local_term, B115200);
+
+            next_tcsetattr(usb_fd, TCSANOW, &local_term);
+
             // TODO Confirm the right firmware on local XBee (API mode)
             packet = xbee_at_packet("VR");
             memset(buffer, 0, 1024);
@@ -349,10 +365,10 @@ int xbee_read(uint8_t *buf, size_t buflen) {
     fd_set read_fds;
     int fd_count;
     size_t length = 0, readlen;
-    uint8_t *p;
+    uint8_t *p, started = 0;
 
     to1.tv_sec = 0;
-    to1.tv_usec = 90000;
+    to1.tv_usec = 100000;
 
     p = buf;
 
@@ -367,12 +383,20 @@ int xbee_read(uint8_t *buf, size_t buflen) {
         if (fd_count == -1) return -1; // Error
 
         // Read the data
-        readlen = next_read(usb_fd, p, (buflen - length > 1024) ? 1024 : buflen - length);
+        readlen = next_read(usb_fd, p, 1);
         if (readlen < 0) return -1; // Read Error
 
+        if (*p == '~') started = 1;
+
         // Move pointers, update length
-        p += readlen;
-        length += readlen;
+        if (started) {
+            p += readlen;
+            length += readlen;
+        } else {
+            printf("Throwing data away\n");
+        }
+
+        if ((length > 4) && ((xbee_packet_size(buf) + 4) == length) && valid_xbee_packet(buf)) return length;
     }
 
     return length;
