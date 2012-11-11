@@ -14,6 +14,15 @@
 #define LOC_LENGTH_L 0x02
 #define LOC_DATA     0x03
 
+void print_hex_data(const uint8_t *data, int len) {
+    int i;
+
+    for (i = 0; i < len; i++) {
+        printf("%02x", data[i]);
+    }
+
+}
+
 uint8_t *make_xbee_packet(uint16_t length) {
     uint8_t *packet = malloc(length + XBEE_PADDING);
     uint8_t checksum;
@@ -31,32 +40,44 @@ void print_xbee_packet(const char *msg, const uint8_t *packet) {
 
     printf("-------PACKET-------\n");
     printf("Comment: %s\n", msg);
-    printf("Raw Data: 0x");
-    for (i = 0; i < (length + XBEE_PADDING); i++) {
-        printf("%02x", packet[i]);
-    }
-    printf("\n");
+    printf("Raw Data: 0x"); print_hex_data(packet, length + XBEE_PADDING); printf("\n");
     printf("Length: %d\n", length);
 
     switch (packet[LOC_DATA]) {
         case XBEE_CMD_AT:
           printf("Packet Type: 0x08 - AT Command\n");
-          printf("Packet ID: 0x%02x\n", packet[LOC_DATA + 1]);
+          printf("Frame ID: 0x%02x\n", packet[LOC_DATA + 1]);
           printf("AT Command: '%c%c'\n", packet[LOC_DATA + 2], packet[LOC_DATA + 3]);
-          printf("Params: ");
-          for (i = 0; i < (length - 4); i++) {
-              printf("%02x", packet[i + LOC_DATA + 3]);
-          }
-          printf("\n");
+          printf("Params: "); print_hex_data(packet + LOC_DATA + 3, length - 4); printf("\n");
           break;
         case 0x17:
-          printf("Packet Type: 0x17 - Remote Command Request\n");
+          printf("Packet Type: 0x17 - Remote AT Command Request\n");
           break;
         case 0x88:
           printf("Packet Type: 0x88 - AT Command Response\n");
+          printf("Frame ID: 0x%02x\n", packet[LOC_DATA + 1]);
+          printf("AT Command: '%c%c'\n", packet[LOC_DATA + 2], packet[LOC_DATA + 3]);
+          switch (packet[LOC_DATA + 4]) {
+              case 0x00:
+                printf("Command Status: OK\n");
+              break;
+              case 0x01:
+                printf("Command Status: ERROR\n");
+              break;
+              case 0x02:
+                printf("Command Status: Invalid Command\n");
+              break;
+              case 0x03:
+                printf("Command Status: Invalid Parameter\n");
+              break;
+              case 0x04:
+                printf("Command Status: Tx Failure\n");
+              break;
+          }
+          printf("Data: "); print_hex_data(packet + LOC_DATA + 5, length - 5); printf("\n");
           break;
         case 0x97:
-          printf("Packet Type: 0x97 - Remote Command Response\n");
+          printf("Packet Type: 0x97 - Remote AT Command Response\n");
           break;
         default:
           printf("Packet Type: 0x%02x - Unknown\n", packet[LOC_DATA]);
