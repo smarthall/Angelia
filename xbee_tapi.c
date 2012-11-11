@@ -19,8 +19,8 @@
 static int usb_fd = 0, last_termios_set = 0, xbee_is_init = 0, bufcount = 0;
 static uint8_t local_addr[8];
 static struct termios last_termios;
-static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22}; // G
-//static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x61, 0x58, 0xe5}; // F
+//static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x76, 0x35, 0x22}; // G
+static uint8_t remote[8] = {0x00, 0x13, 0xa2, 0x00, 0x40, 0x61, 0x58, 0xe5}; // F
 
 // Serial Handling
 static int (*next_tcgetattr)(int fd, struct termios *termios_p) = NULL;
@@ -37,6 +37,7 @@ static int (*next_select)(int nfds, fd_set *readfds, fd_set *writefds, fd_set *e
 static int (*next_ioctl)(int fd, unsigned long int request, void *data) = NULL;
 
 void __attribute__ ((constructor)) xbee_tapi_init(void) {
+    printf("Setup...\n");
     next_select = dlsym(RTLD_NEXT, "select");
     next_read = dlsym(RTLD_NEXT, "read");
     next_write = dlsym(RTLD_NEXT, "write");
@@ -45,13 +46,11 @@ void __attribute__ ((constructor)) xbee_tapi_init(void) {
     next_open = dlsym(RTLD_NEXT, "open");
     next_close = dlsym(RTLD_NEXT, "close");
     next_ioctl = dlsym(RTLD_NEXT, "ioctl");
+    printf("Setup Done\n");
 }
 
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
-    //if (FD_ISSET(usb_fd, readfds)) {
-    //    timeout->tv_usec + 50000;
-    //}
-
+    printf("select() called\n");
     if ((bufcount > 0) && (FD_ISSET(usb_fd, readfds))) {
         printf("Faking Select() on fd=%d\n", usb_fd);
         if (readfds != NULL) FD_ZERO(readfds);
@@ -61,6 +60,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
         return 1;
     }
 
+    printf("select() finished normally\n");
     return next_select(nfds, readfds, writefds, exceptfds, timeout);
 }
 
@@ -397,6 +397,7 @@ int xbee_read(uint8_t *buf, size_t buflen) {
         }
 
         if ((length > 4) && ((xbee_packet_size(buf) + 4) == length) && valid_xbee_packet(buf)) return length;
+
         if ((length > 4) && ((xbee_packet_size(buf) + 4) < length)) {
             printf("Throwing away %d bytes: 0x", length);
             for (i = 0; i < length; i++) {

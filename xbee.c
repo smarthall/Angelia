@@ -27,12 +27,42 @@ uint8_t *make_xbee_packet(uint16_t length) {
 }
 
 void print_xbee_packet(const char *msg, const uint8_t *packet) {
-    int i, length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L] + XBEE_PADDING);
-    printf("XBee Packet(%s): 0x", msg);
-    for (i = 0; i < length; i++) {
+    int i, length = COMB_BYTE(packet[LOC_LENGTH_H], packet[LOC_LENGTH_L]);
+
+    printf("-------PACKET-------\n");
+    printf("Comment: %s\n", msg);
+    printf("Raw Data: 0x");
+    for (i = 0; i < (length + XBEE_PADDING); i++) {
         printf("%02x", packet[i]);
     }
     printf("\n");
+    printf("Length: %d\n", length);
+
+    switch (packet[LOC_DATA]) {
+        case XBEE_CMD_AT:
+          printf("Packet Type: 0x08 - AT Command\n");
+          printf("Packet ID: 0x%02x\n", packet[LOC_DATA + 1]);
+          printf("AT Command: '%c%c'\n", packet[LOC_DATA + 2], packet[LOC_DATA + 3]);
+          printf("Params: ");
+          for (i = 0; i < (length - 4); i++) {
+              printf("%02x", packet[i + LOC_DATA + 3]);
+          }
+          printf("\n");
+          break;
+        case 0x17:
+          printf("Packet Type: 0x17 - Remote Command Request\n");
+          break;
+        case 0x88:
+          printf("Packet Type: 0x88 - AT Command Response\n");
+          break;
+        case 0x97:
+          printf("Packet Type: 0x97 - Remote Command Response\n");
+          break;
+        default:
+          printf("Packet Type: 0x%02x - Unknown\n", packet[LOC_DATA]);
+    }
+
+    printf("-----END PACKET-----\n");
 }
 
 void xbee_calc_checksum(uint8_t *packet) {
