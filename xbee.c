@@ -14,6 +14,15 @@
 #define BUFOP_GET 2
 #define BUFOP_NOOP 3
 
+#define XBEE_FRAME_START 0x7e
+
+#define XBEE_LOC_START 0
+#define XBEE_LOC_LEN_H 1
+#define XBEE_LOC_LEN_L 2
+#define XBEE_LOC_DATA  3
+#define XBEE_LOC_CHECKSUM(l) (XBEE_LOC_DATA + (l) + 1)
+
+
 int bufferop(int op, int datalen, uint8_t *data, uint8_t **buf) {
     static uint8_t buffer[BUFSIZE];
     static uint8_t bufsize = 0;
@@ -76,9 +85,20 @@ int sendpacket(int fd, uint16_t len, uint8_t *data) {
     write(fd, &len_l, 1);
     write(fd, data, len);
     write(fd, &checksum, 1);
+
+    return EXIT_SUCCESS;
 }
 
 int getpacket(int fd, uint8_t *data, uint16_t maxlen) {
+    // 1. Get more data from the serial and add to buffer
+    // 2. Check if we have a valid packet yet
+    //   a) Check the buffer has more than 5 bytes
+    //   b) Check if the first byte is XBEE_FRAME_START, if not discard 1 byte
+    //   c) Get the length
+    //   d) Check the checksum value is within range
+    //   e) Check the checksum is correct
+    //   f) extract the data from the packet, store in data
+    //   g) remove the packet from the buffer
 }
 
 
