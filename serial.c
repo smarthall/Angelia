@@ -21,6 +21,7 @@ int openserial() {
     cfsetispeed(&local_term, B115200);
 
     tcsetattr(fd, TCSANOW, &local_term);
+    fcntl(fd, F_SETFD, O_NONBLOCK);
 }
 
 int closeserial(int fd) {
